@@ -9,17 +9,20 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "build": "expo build",
-    "eject": "expo eject"
+    "eject": "expo eject",
+    "setup-db": "node scripts/setup-database.js",
+    "db:setup": "node scripts/setup-database.js"
   },
   "dependencies": {
     "@expo/metro-runtime": "~5.0.4",
     "@expo/vector-icons": "^14.0.0",
-    "@react-native-async-storage/async-storage": "2.1.2",
+    "@react-native-async-storage/async-storage": "^2.1.2",
     "@react-navigation/bottom-tabs": "^6.5.11",
     "@react-navigation/native": "^6.1.9",
     "@react-navigation/native-stack": "^6.9.17",
     "expo": "53.0.22",
     "expo-clipboard": "~6.0.3",
+    "expo-crypto": "^14.1.5",
     "expo-font": "~13.3.2",
     "expo-image-picker": "~16.0.3",
     "expo-linear-gradient": "~14.1.5",

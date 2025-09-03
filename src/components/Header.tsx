@@ -6,14 +6,29 @@ import {
   StyleSheet,
   Alert,
   Animated,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { typography } from '../styles/typography';
-import { getUserRole, getUserCoins, clearUserData } from '../utils/storage';
+import { getUserRole, getUserCoins, clearUserData, getCurrentUser } from '../utils/storage';
 import { useTheme } from '../contexts/ThemeContext';
+
+// Responsive constants
+const { width } = Dimensions.get('window');
+const isSmallScreen = width < 375;
+const isMediumScreen = width >= 375 && width < 768;
+const isTablet = width >= 768;
+const isLargeScreen = width >= 1024;
+
+const getResponsiveSize = (small: number, medium: number, tablet: number, large: number) => {
+  if (isSmallScreen) return small;
+  if (isMediumScreen) return medium;
+  if (isTablet) return tablet;
+  return large;
+};
 
 interface HeaderProps {
   title?: string;
@@ -32,8 +47,8 @@ export default function Header({ title, showCoins = true, showLogout = true }: H
     container: {
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
-      paddingTop: 50, // Account for status bar
-      paddingBottom: 18,
+      paddingTop: getResponsiveSize(45, 50, 55, 60),
+      paddingBottom: getResponsiveSize(14, 18, 22, 26),
       shadowColor: '#000000',
       shadowOffset: {
         width: 0,
@@ -42,12 +57,14 @@ export default function Header({ title, showCoins = true, showLogout = true }: H
       shadowOpacity: 0.1,
       shadowRadius: 4,
       elevation: 4,
+      maxWidth: isLargeScreen ? 1200 : undefined,
+      alignSelf: isLargeScreen ? 'center' : 'stretch',
     },
     content: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 20,
+      paddingHorizontal: getResponsiveSize(16, 20, 24, 32),
     },
     logoContainer: {
       flexDirection: 'row',
@@ -55,7 +72,7 @@ export default function Header({ title, showCoins = true, showLogout = true }: H
       flex: 1,
     },
     title: {
-      fontSize: typography.sizes['2xl'] + 2,
+      fontSize: (typography.sizes['2xl'] + 2) * getResponsiveSize(0.9, 1, 1.1, 1.2),
       fontFamily: typography.fonts.oleoBold,
       color: colors.primary,
       fontWeight: typography.weights.bold,
@@ -151,6 +168,13 @@ export default function Header({ title, showCoins = true, showLogout = true }: H
       ])
     ).start();
   }, []);
+
+  // Refresh coin balance when any screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      loadUserData();
+    }, [])
+  );
 
   const loadUserData = async () => {
     const role = await getUserRole();

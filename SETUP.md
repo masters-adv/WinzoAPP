@@ -8,6 +8,7 @@ This guide will help you set up and run the WinZO React Native application.
 - **Node.js** (v16 or higher) - [Download](https://nodejs.org/)
 - **npm** or **yarn** package manager
 - **Expo CLI** - Install globally: `npm install -g expo-cli`
+- **MySQL Server** (v8.0 or higher) - [Download](https://dev.mysql.com/downloads/mysql/)
 - **Git** for version control
 
 ### Development Tools
@@ -37,7 +38,33 @@ npm install
 yarn install
 ```
 
-### 3. Download Required Assets
+### 3. Setup MySQL Database
+
+#### Install MySQL Server
+Follow the installation guide for your platform:
+- **Windows**: Download MySQL Installer from [MySQL Downloads](https://dev.mysql.com/downloads/installer/)
+- **macOS**: `brew install mysql && brew services start mysql`
+- **Linux**: `sudo apt install mysql-server`
+
+#### Configure Database
+1. Create a `.env` file in the project root:
+```env
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=winzo_db
+DB_USER=root
+DB_PASSWORD=your_mysql_password_here
+JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+```
+
+2. Run the database setup script:
+```bash
+npm run setup-db
+```
+
+This will create the database, tables, and seed initial data.
+
+### 4. Download Required Assets
 
 #### Fonts (Required)
 Download these fonts from Google Fonts and place them in `assets/fonts/`:
@@ -62,7 +89,7 @@ Replace placeholder files in `assets/` with actual images:
 - `adaptive-icon.png` - Android adaptive icon
 - `favicon.png` - Web favicon
 
-### 4. Start Development Server
+### 5. Start Development Server
 ```bash
 # Start Expo development server
 npm start
@@ -71,7 +98,7 @@ npm start
 expo start
 ```
 
-### 5. Run on Device/Simulator
+### 6. Run on Device/Simulator
 
 #### Mobile Device (Recommended for testing)
 1. Install **Expo Go** app on your phone
@@ -105,10 +132,17 @@ The app uses mock data and doesn't require external APIs for development. All co
 - `babel.config.js` - Babel configuration with path aliases
 - `tsconfig.json` - TypeScript configuration
 
-### Mock Data
-Test accounts are pre-configured in `src/utils/api.ts`:
-- **Admin**: admin@winzo.com / password
-- **User**: user@winzo.com / password
+### Database Configuration
+Test accounts are pre-configured in the MySQL database:
+- **Admin**: admin@winzo.com / admin123
+- **User**: user@winzo.com / user123
+- **Quick Test**: 1 / 1
+
+The database contains:
+- Sample auction products
+- Coin packages for virtual currency
+- Payment methods (Vodafone Cash)
+- App settings and configuration
 
 ## 📱 Testing
 

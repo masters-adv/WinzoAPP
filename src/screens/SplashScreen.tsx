@@ -9,6 +9,7 @@ import { commonStyles } from '../styles/common';
 import { useTheme } from '../contexts/ThemeContext';
 import { getUserRole } from '../utils/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { seedDatabase } from '../config/database';
 
 const { width, height } = Dimensions.get('window');
 
@@ -81,6 +82,9 @@ export default function SplashScreen() {
 
     // Navigation timer
     const timer = setTimeout(async () => {
+      // Initialize database with seed data
+      await seedDatabase();
+      
       const userRole = await getUserRole();
       const hasSeenOnboarding = await AsyncStorage.getItem('hasSeenOnboarding');
       

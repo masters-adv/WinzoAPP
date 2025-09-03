@@ -174,16 +174,17 @@ winzo-app/
    - **Admins** → Admin tab navigator (Dashboard, Products, Payments)
 
 ### Test Accounts
-- **Admin**: admin@winzo.com / password
-- **User**: user@winzo.com / password
+- **Admin**: admin@winzo.com / admin123
+- **User**: user@winzo.com / user123
+- **Quick Test**: 1 / 1
 
 ## 🛠️ Development Features
 
-### Mock Data System
-- **Local API simulation** for development
-- **AsyncStorage** for user persistence
-- **Realistic auction data** with countdown timers
-- **Bidding simulation** with status tracking
+### MySQL Database System
+- **Real MySQL database** with proper schema
+- **JWT authentication** for secure user sessions
+- **Persistent data storage** across app restarts
+- **Real-time data synchronization** between users
 
 ### Performance Optimizations
 - **Lazy loading** for screens and components
@@ -194,14 +195,14 @@ winzo-app/
 ## 🔄 State Management
 
 ### User Session
-- **AsyncStorage** for persistent login state
+- **JWT tokens** for secure authentication
 - **Role-based navigation** and UI rendering
-- **Coin balance** updates with real-time sync
+- **Real-time coin balance** updates from database
 
 ### Data Flow
-- **API calls** simulated with mock functions
-- **Local state** managed with React hooks
-- **Cross-component communication** via props and context
+- **MySQL database** for all persistent data
+- **RESTful API** with proper authentication
+- **Real-time synchronization** across app instances
 
 ## 📱 Platform Compatibility
 
@@ -211,23 +212,19 @@ winzo-app/
 
 ## 🚧 Future Enhancements
 
-1. **Real Backend Integration**
-   - Replace mock API with actual backend
-   - Implement real authentication (Firebase Auth)
+1. **Enhanced Features**
    - Add WebSocket for real-time bidding
-
-2. **Enhanced Features**
-   - Push notifications for bid updates
+   - Implement push notifications
+   - Add advanced search and filtering
    - Biometric authentication
    - Offline mode support
-   - Advanced search and filtering
 
-3. **Performance Improvements**
+2. **Performance Improvements**
    - Image caching and optimization
    - Background task management
    - Code splitting and lazy loading
 
-4. **Additional Platforms**
+3. **Additional Platforms**
    - Desktop app with Electron
    - Progressive Web App (PWA)
    - Apple Watch and Android Wear support

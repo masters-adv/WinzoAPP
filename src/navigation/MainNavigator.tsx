@@ -2,7 +2,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
-import AuctionsScreen from '../screens/AuctionsScreen';
+import AuctionsStackNavigator from './AuctionsStackNavigator';
 import MyBidsScreen from '../screens/MyBidsScreen';
 import CoinStoreScreen from '../screens/CoinStoreScreen';
 import { useTheme } from '../contexts/ThemeContext';
@@ -49,7 +49,7 @@ export default function MainNavigator() {
     >
       <Tab.Screen 
         name="Auctions" 
-        component={AuctionsScreen}
+        component={AuctionsStackNavigator}
         options={{ tabBarLabel: 'Auctions' }}
       />
       <Tab.Screen 

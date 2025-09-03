@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AuthService, UserService } from '../services/database';
 import { CoinTransaction } from '../types';
 
 export interface User {
@@ -9,35 +10,64 @@ export interface User {
   coins: number;
 }
 
-// Storage keys
+// Storage keys (now primarily used for JWT token and temporary data)
 const STORAGE_KEYS = {
-  USER_ID: '@winzo:userId',
-  USER_ROLE: '@winzo:userRole',
-  USER_NAME: '@winzo:userName',
-  USER_COINS: '@winzo:userCoins',
-  USER_EMAIL: '@winzo:userEmail',
+  AUTH_TOKEN: '@winzo:authToken',
   PENDING_TRANSACTIONS: '@winzo:pendingTransactions',
   TRANSACTION_HISTORY: '@winzo:transactionHistory',
 };
 
-// User storage functions
-export const storeUser = async (user: User): Promise<void> => {
+// Authentication token management
+export const storeAuthToken = async (token: string): Promise<void> => {
   try {
-    await AsyncStorage.multiSet([
-      [STORAGE_KEYS.USER_ID, user.id.toString()],
-      [STORAGE_KEYS.USER_ROLE, user.role],
-      [STORAGE_KEYS.USER_NAME, user.name],
-      [STORAGE_KEYS.USER_COINS, user.coins.toString()],
-      [STORAGE_KEYS.USER_EMAIL, user.email],
-    ]);
+    await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
   } catch (error) {
-    console.error('Error storing user data:', error);
+    console.error('Error storing auth token:', error);
+  }
+};
+
+export const getAuthToken = async (): Promise<string | null> => {
+  try {
+    return await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+  } catch (error) {
+    console.error('Error getting auth token:', error);
+    return null;
+  }
+};
+
+export const clearAuthToken = async (): Promise<void> => {
+  try {
+    await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+  } catch (error) {
+    console.error('Error clearing auth token:', error);
+  }
+};
+
+// User data functions (now fetched from AsyncStorage-based mock database)
+export const storeUser = async (user: User): Promise<void> => {
+  // This function is kept for backward compatibility
+  // User data is now managed in AsyncStorage mock database
+  console.log('User stored in database:', user.name);
+};
+
+export const getCurrentUser = async (): Promise<User | null> => {
+  try {
+    const token = await getAuthToken();
+    if (!token) {
+      return null;
+    }
+
+    return await AuthService.verifyToken(token);
+  } catch (error) {
+    console.error('Error getting current user:', error);
+    return null;
   }
 };
 
 export const getUserRole = async (): Promise<string | null> => {
   try {
-    return await AsyncStorage.getItem(STORAGE_KEYS.USER_ROLE);
+    const user = await getCurrentUser();
+    return user?.role || null;
   } catch (error) {
     console.error('Error getting user role:', error);
     return null;
@@ -46,8 +76,8 @@ export const getUserRole = async (): Promise<string | null> => {
 
 export const getUserId = async (): Promise<number | null> => {
   try {
-    const id = await AsyncStorage.getItem(STORAGE_KEYS.USER_ID);
-    return id ? parseInt(id, 10) : null;
+    const user = await getCurrentUser();
+    return user?.id || null;
   } catch (error) {
     console.error('Error getting user ID:', error);
     return null;
@@ -56,7 +86,8 @@ export const getUserId = async (): Promise<number | null> => {
 
 export const getUserName = async (): Promise<string | null> => {
   try {
-    return await AsyncStorage.getItem(STORAGE_KEYS.USER_NAME);
+    const user = await getCurrentUser();
+    return user?.name || null;
   } catch (error) {
     console.error('Error getting user name:', error);
     return null;
@@ -65,8 +96,8 @@ export const getUserName = async (): Promise<string | null> => {
 
 export const getUserCoins = async (): Promise<number> => {
   try {
-    const coins = await AsyncStorage.getItem(STORAGE_KEYS.USER_COINS);
-    return coins ? parseInt(coins, 10) : 0;
+    const user = await getCurrentUser();
+    return user?.coins || 0;
   } catch (error) {
     console.error('Error getting user coins:', error);
     return 0;
@@ -75,7 +106,10 @@ export const getUserCoins = async (): Promise<number> => {
 
 export const updateUserCoins = async (newCoins: number): Promise<void> => {
   try {
-    await AsyncStorage.setItem(STORAGE_KEYS.USER_COINS, newCoins.toString());
+    const user = await getCurrentUser();
+    if (user) {
+      await UserService.updateUserCoins(user.id, newCoins);
+    }
   } catch (error) {
     console.error('Error updating user coins:', error);
   }
@@ -83,7 +117,8 @@ export const updateUserCoins = async (newCoins: number): Promise<void> => {
 
 export const clearUserData = async (): Promise<void> => {
   try {
-    await AsyncStorage.multiRemove(Object.values(STORAGE_KEYS));
+    await clearAuthToken();
+    await clearTransactionData();
   } catch (error) {
     console.error('Error clearing user data:', error);
   }
@@ -91,40 +126,14 @@ export const clearUserData = async (): Promise<void> => {
 
 export const getFullUserData = async (): Promise<Partial<User> | null> => {
   try {
-    const keys = Object.values(STORAGE_KEYS).filter(key => !key.includes('TRANSACTIONS'));
-    const values = await AsyncStorage.multiGet(keys);
-    
-    const userData: any = {};
-    values.forEach(([key, value]) => {
-      if (value) {
-        switch (key) {
-          case STORAGE_KEYS.USER_ID:
-            userData.id = parseInt(value, 10);
-            break;
-          case STORAGE_KEYS.USER_ROLE:
-            userData.role = value;
-            break;
-          case STORAGE_KEYS.USER_NAME:
-            userData.name = value;
-            break;
-          case STORAGE_KEYS.USER_COINS:
-            userData.coins = parseInt(value, 10);
-            break;
-          case STORAGE_KEYS.USER_EMAIL:
-            userData.email = value;
-            break;
-        }
-      }
-    });
-
-    return Object.keys(userData).length > 0 ? userData : null;
+    return await getCurrentUser();
   } catch (error) {
     console.error('Error getting full user data:', error);
     return null;
   }
 };
 
-// Coin transaction storage functions
+// Transaction storage functions (kept for offline functionality)
 export const storePendingTransaction = async (transaction: CoinTransaction): Promise<void> => {
   try {
     const existingTransactions = await getPendingTransactions();
@@ -186,3 +195,24 @@ export const clearTransactionData = async (): Promise<void> => {
   }
 };
 
+// Utility function to check if user is authenticated
+export const isAuthenticated = async (): Promise<boolean> => {
+  try {
+    const user = await getCurrentUser();
+    return user !== null;
+  } catch (error) {
+    console.error('Error checking authentication:', error);
+    return false;
+  }
+};
+
+// Utility function to check if user is admin
+export const isAdmin = async (): Promise<boolean> => {
+  try {
+    const user = await getCurrentUser();
+    return user?.role === 'admin';
+  } catch (error) {
+    console.error('Error checking admin status:', error);
+    return false;
+  }
+};

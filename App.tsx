@@ -13,7 +13,7 @@ import AuthScreen from './src/screens/AuthScreen';
 import MainNavigator from './src/navigation/MainNavigator';
 import AdminNavigator from './src/navigation/AdminNavigator';
 import VodafonePaymentScreen from './src/screens/VodafonePaymentScreen';
-import { getUserRole } from './src/utils/storage';
+import { getUserRole, isAuthenticated } from './src/utils/storage';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 
 const Stack = createNativeStackNavigator();

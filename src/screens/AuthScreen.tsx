@@ -21,7 +21,7 @@ import { typography } from '../styles/typography';
 import { commonStyles } from '../styles/common';
 import { useTheme } from '../contexts/ThemeContext';
 import { loginUser, signupUser } from '../utils/api';
-import { storeUser } from '../utils/storage';
+import { storeUser, storeAuthToken } from '../utils/storage';
 
 const { width, height } = Dimensions.get('window');
 
