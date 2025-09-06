@@ -206,6 +206,41 @@ export class ProductService {
       throw error;
     }
   }
+
+  static async updateProduct(id: number, productData: Partial<Product>): Promise<Product> {
+    try {
+      const products = await MockDatabase.getProducts();
+      const productIndex = products.findIndex(p => p.id === id);
+      
+      if (productIndex === -1) {
+        throw new Error('Product not found');
+      }
+      
+      products[productIndex] = { ...products[productIndex], ...productData };
+      await MockDatabase.saveProducts(products);
+      
+      return products[productIndex];
+    } catch (error) {
+      console.error('Error updating product:', error);
+      throw error;
+    }
+  }
+
+  static async deleteProduct(id: number): Promise<void> {
+    try {
+      const products = await MockDatabase.getProducts();
+      const updatedProducts = products.filter(p => p.id !== id);
+      
+      if (products.length === updatedProducts.length) {
+        throw new Error('Product not found');
+      }
+      
+      await MockDatabase.saveProducts(updatedProducts);
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      throw error;
+    }
+  }
 }
 
 // User Services

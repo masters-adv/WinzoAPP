@@ -9,7 +9,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, CommonActions } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { typography } from '../styles/typography';
@@ -137,6 +137,7 @@ export default function Header({ title, showCoins = true, showLogout = true }: H
 
   useEffect(() => {
     loadUserData();
+    console.log('Header component mounted, showLogout:', showLogout);
     
     // Start animations
     Animated.parallel([
@@ -200,6 +201,7 @@ export default function Header({ title, showCoins = true, showLogout = true }: H
   };
 
   const handleLogout = () => {
+    console.log('Logout button pressed');
     Alert.alert(
       'Logout',
       'Are you sure you want to logout?',
@@ -207,16 +209,44 @@ export default function Header({ title, showCoins = true, showLogout = true }: H
         {
           text: 'Cancel',
           style: 'cancel',
+          onPress: () => console.log('Logout cancelled')
         },
         {
           text: 'Logout',
           style: 'destructive',
           onPress: async () => {
-            await clearUserData();
-            (navigation as any).reset({
-              index: 0,
-              routes: [{ name: 'Auth' }],
-            });
+            try {
+              console.log('Starting logout process...');
+              console.log('Current navigation state:', navigation.getState());
+              
+              await clearUserData();
+              console.log('User data cleared successfully');
+              
+              // Try multiple navigation approaches for better compatibility
+              try {
+                // First try CommonActions reset
+                navigation.dispatch(
+                  CommonActions.reset({
+                    index: 0,
+                    routes: [{ name: 'Auth' }],
+                  })
+                );
+              } catch (resetError) {
+                console.log('CommonActions reset failed, trying navigate:', resetError);
+                // Fallback to simple navigation
+                try {
+                  navigation.navigate('Auth' as never);
+                } catch (navError) {
+                  console.log('Navigate failed, trying replace:', navError);
+                  // Last resort - try to go to root and then auth
+                  (navigation as any).replace('Auth');
+                }
+              }
+              console.log('Navigation reset completed');
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Error', 'Failed to logout. Please try again.');
+            }
           },
         },
       ]
@@ -286,17 +316,57 @@ export default function Header({ title, showCoins = true, showLogout = true }: H
 
 
 
-          {/* Enhanced Logout button */}
-          {showLogout && (
-            <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-              <LinearGradient
-                colors={[colors.surface, colors.card]}
-                style={styles.logoutGradient}
-              >
-                <Ionicons name="log-out-outline" size={22} color={colors.textSecondary} />
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
+          {/* Enhanced Logout Button */}
+          <TouchableOpacity 
+            onPress={async () => {
+              console.log('🔴 LOGOUT BUTTON PRESSED');
+              try {
+                console.log('🔄 Clearing user data...');
+                await clearUserData();
+                console.log('✅ User data cleared');
+                
+                console.log('🔄 Navigating to Auth screen...');
+                window.location.href = window.location.origin;
+                console.log('✅ Page reloaded to reset app state');
+              } catch (error) {
+                console.error('❌ Logout error:', error);
+                alert('Logout failed. Please refresh the page manually.');
+              }
+            }}
+            activeOpacity={0.8}
+            style={{
+              marginLeft: 16,
+              borderRadius: 12,
+              overflow: 'hidden',
+              elevation: 4,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.25,
+              shadowRadius: 4,
+            }}
+          >
+            <LinearGradient
+              colors={['#ff6b6b', '#ee5a52', '#dc3545']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                gap: 8,
+              }}
+            >
+              <Ionicons name="log-out-outline" size={18} color="white" />
+              <Text style={{ 
+                color: 'white', 
+                fontSize: 14, 
+                fontWeight: '600',
+                fontFamily: typography.fonts.medium,
+                letterSpacing: 0.5
+              }}>Logout</Text>
+            </LinearGradient>
+          </TouchableOpacity>
         </Animated.View>
       </Animated.View>
     </LinearGradient>

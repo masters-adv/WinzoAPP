@@ -21,7 +21,9 @@ import { typography } from '../styles/typography';
 import { commonStyles } from '../styles/common';
 import { useTheme } from '../contexts/ThemeContext';
 import { fetchProducts, fetchUsers, fetchAllTransactions } from '../utils/api';
-import { getUserName, getTransactionHistory } from '../utils/storage';
+import { getUserName, getTransactionHistory, clearUserData } from '../utils/storage';
+import { UserService, TransactionService, SettingsService } from '../services/database';
+import { MockDatabase } from '../config/database';
 import Header from '../components/Header';
 
 interface StatCardProps {
@@ -76,6 +78,10 @@ export default function AdminDashboardScreen() {
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [newCoins, setNewCoins] = useState('');
+  const [showUserActions, setShowUserActions] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editUserData, setEditUserData] = useState({ name: '', email: '' });
 
   useEffect(() => {
     loadDashboardData();
@@ -130,15 +136,195 @@ export default function AdminDashboardScreen() {
       return;
     }
 
+    const coinsToGrant = parseInt(newCoins);
+    if (isNaN(coinsToGrant) || coinsToGrant <= 0) {
+      Alert.alert('Error', 'Please enter a valid positive number');
+      return;
+    }
+
     try {
-      // Here you would call an API to grant coins
-      Alert.alert('Success', `Granted ${newCoins} coins to ${selectedUser.name}`);
+      await UserService.grantCoinsToUser(selectedUser.id, coinsToGrant);
+      Alert.alert('Success', `Successfully granted ${coinsToGrant} coins to ${selectedUser.name}`);
       setNewCoins('');
       setSelectedUser(null);
+      setShowUserActions(false);
       setShowUserModal(false);
       await loadDashboardData();
     } catch (error) {
-      Alert.alert('Error', 'Failed to grant coins');
+      console.error('Error granting coins:', error);
+      Alert.alert('Error', 'Failed to grant coins. Please try again.');
+    }
+  };
+
+  const handleDeleteUser = async (user: User) => {
+    Alert.alert(
+      'Delete User',
+      `Are you sure you want to delete ${user.name}? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const users = await MockDatabase.getUsers();
+              const updatedUsers = users.filter(u => u.id !== user.id);
+              await MockDatabase.saveUsers(updatedUsers);
+              Alert.alert('Success', `User ${user.name} deleted successfully`);
+              await loadDashboardData();
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete user');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleUpdateUserRole = async (user: User) => {
+    const newRole = user.role === 'admin' ? 'user' : 'admin';
+    Alert.alert(
+      'Update User Role',
+      `Change ${user.name}'s role from ${user.role} to ${newRole}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Update',
+          onPress: async () => {
+            try {
+              const users = await MockDatabase.getUsers();
+              const userIndex = users.findIndex(u => u.id === user.id);
+              if (userIndex !== -1) {
+                users[userIndex].role = newRole as 'admin' | 'user';
+                await MockDatabase.saveUsers(users);
+                Alert.alert('Success', `User role updated to ${newRole}`);
+                await loadDashboardData();
+              }
+            } catch (error) {
+              Alert.alert('Error', 'Failed to update user role');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleEditUser = (user: User) => {
+    setEditingUser(user);
+    setEditUserData({ name: user.name, email: user.email });
+    setShowEditModal(true);
+  };
+
+  const handleSaveEditUser = async () => {
+    if (!editingUser || !editUserData.name || !editUserData.email) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    try {
+      const users = await MockDatabase.getUsers();
+      const userIndex = users.findIndex(u => u.id === editingUser.id);
+      if (userIndex !== -1) {
+        users[userIndex] = { ...users[userIndex], name: editUserData.name, email: editUserData.email };
+        await MockDatabase.saveUsers(users);
+        Alert.alert('Success', 'User updated successfully');
+        setShowEditModal(false);
+        setEditingUser(null);
+        setEditUserData({ name: '', email: '' });
+        await loadDashboardData();
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update user');
+    }
+  };
+
+  const handleBanUser = async (user: User) => {
+    const isBanned = (user as any).banned || false;
+    const action = isBanned ? 'unban' : 'ban';
+    
+    Alert.alert(
+      `${action.charAt(0).toUpperCase() + action.slice(1)} User`,
+      `Are you sure you want to ${action} ${user.name}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: action.charAt(0).toUpperCase() + action.slice(1),
+          style: isBanned ? 'default' : 'destructive',
+          onPress: async () => {
+            try {
+              const users = await MockDatabase.getUsers();
+              const userIndex = users.findIndex(u => u.id === user.id);
+              if (userIndex !== -1) {
+                (users[userIndex] as any).banned = !isBanned;
+                await MockDatabase.saveUsers(users);
+                Alert.alert('Success', `User ${isBanned ? 'unbanned' : 'banned'} successfully`);
+                await loadDashboardData();
+              }
+            } catch (error) {
+              Alert.alert('Error', `Failed to ${action} user`);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleGrantCoinsToUser = (user: User) => {
+    setSelectedUser(user);
+    setShowUserActions(true);
+  };
+
+  const handleClearCache = async () => {
+    try {
+      await clearUserData();
+      Alert.alert('Success', 'Cache cleared successfully');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to clear cache');
+    }
+  };
+
+  const handleResetDatabase = async () => {
+    Alert.alert(
+      'Reset Database',
+      'This will delete all data and reset to default. Are you sure?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await MockDatabase.clearAll();
+              Alert.alert('Success', 'Database reset successfully');
+              await loadDashboardData();
+            } catch (error) {
+              Alert.alert('Error', 'Failed to reset database');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleExportData = async () => {
+    try {
+      const users = await MockDatabase.getUsers();
+      const products = await MockDatabase.getProducts();
+      const transactions = await MockDatabase.getTransactions();
+      
+      const exportData = {
+        users: users.length,
+        products: products.length,
+        transactions: transactions.length,
+        exportDate: new Date().toISOString()
+      };
+      
+      Alert.alert(
+        'Data Export',
+        `Export Summary:\n• Users: ${exportData.users}\n• Products: ${exportData.products}\n• Transactions: ${exportData.transactions}\n• Date: ${new Date().toLocaleDateString()}`
+      );
+    } catch (error) {
+      Alert.alert('Error', 'Failed to export data');
     }
   };
 
@@ -147,9 +333,9 @@ export default function AdminDashboardScreen() {
       'System Settings',
       'Choose an action:',
       [
-        { text: 'Clear Cache', onPress: () => Alert.alert('Cache cleared') },
-        { text: 'Reset Database', onPress: () => Alert.alert('Database reset') },
-        { text: 'Export Data', onPress: () => Alert.alert('Data exported') },
+        { text: 'Clear Cache', onPress: handleClearCache },
+        { text: 'Reset Database', onPress: handleResetDatabase },
+        { text: 'Export Data', onPress: handleExportData },
         { text: 'Cancel', style: 'cancel' },
       ]
     );
@@ -349,45 +535,111 @@ export default function AdminDashboardScreen() {
             <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
               <View style={styles.modalHeader}>
                 <Text style={[styles.modalTitle, { color: colors.text }]}>User Management</Text>
-                <TouchableOpacity onPress={() => setShowUserModal(false)}>
-                  <Ionicons name="close" size={24} color={colors.textMuted} />
-                </TouchableOpacity>
+                <TouchableOpacity onPress={() => {
+                   setShowUserModal(false);
+                   setSelectedUser(null);
+                   setShowUserActions(false);
+                   setNewCoins('');
+                 }}>
+                   <Ionicons name="close" size={24} color={colors.textMuted} />
+                 </TouchableOpacity>
               </View>
               
               <FlatList
-                data={users}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={({ item }) => (
-                  <TouchableOpacity 
-                    style={[styles.userItem, { backgroundColor: colors.card }]}
-                    onPress={() => setSelectedUser(item)}
-                  >
-                    <View>
-                      <Text style={[styles.userName, { color: colors.text }]}>{item.name}</Text>
-                      <Text style={[styles.userEmail, { color: colors.textMuted }]}>{item.email}</Text>
-                    </View>
-                    <Text style={[styles.userCoins, { color: colors.primary }]}>{item.coins} coins</Text>
-                  </TouchableOpacity>
-                )}
-                style={styles.userList}
-              />
+                  data={users}
+                  keyExtractor={(item) => item.id.toString()}
+                  renderItem={({ item }) => {
+                    const isBanned = (item as any).banned || false;
+                    return (
+                      <View style={[styles.userCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                        <View style={styles.userInfo}>
+                          <View style={styles.userDetails}>
+                            <Text style={[styles.userName, { color: colors.text }]}>{item.name}</Text>
+                            <Text style={[styles.userEmail, { color: colors.textMuted }]}>{item.email}</Text>
+                            <View style={styles.userMetaInfo}>
+                              <Text style={[styles.userCoins, { color: colors.primary }]}>{item.coins} coins</Text>
+                              <Text style={[styles.userRole, { 
+                                color: item.role === 'admin' ? colors.warning : colors.success 
+                              }]}>{item.role.toUpperCase()}</Text>
+                              {isBanned && (
+                                <Text style={[styles.bannedStatus, { color: colors.error }]}>BANNED</Text>
+                              )}
+                            </View>
+                          </View>
+                        </View>
+                        
+                        <View style={styles.userActions}>
+                          <TouchableOpacity 
+                            style={[styles.actionButton, styles.editButton, { backgroundColor: colors.primary + '20' }]}
+                            onPress={() => handleEditUser(item)}
+                          >
+                            <Ionicons name="create-outline" size={18} color={colors.primary} />
+                          </TouchableOpacity>
+                          
+                          <TouchableOpacity 
+                            style={[styles.actionButton, styles.coinsButton, { backgroundColor: colors.success + '20' }]}
+                            onPress={() => handleGrantCoinsToUser(item)}
+                          >
+                            <Ionicons name="diamond-outline" size={18} color={colors.success} />
+                          </TouchableOpacity>
+                          
+                          <TouchableOpacity 
+                            style={[styles.actionButton, styles.banButton, { 
+                              backgroundColor: isBanned ? colors.warning + '20' : colors.error + '20' 
+                            }]}
+                            onPress={() => handleBanUser(item)}
+                          >
+                            <Ionicons 
+                              name={isBanned ? "checkmark-circle-outline" : "ban-outline"} 
+                              size={18} 
+                              color={isBanned ? colors.warning : colors.error} 
+                            />
+                          </TouchableOpacity>
+                          
+                          <TouchableOpacity 
+                            style={[styles.actionButton, styles.deleteButton, { backgroundColor: colors.error + '20' }]}
+                            onPress={() => handleDeleteUser(item)}
+                          >
+                            <Ionicons name="trash-outline" size={18} color={colors.error} />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    );
+                  }}
+                  style={styles.userList}
+                />
               
-              {selectedUser && (
-                <View style={styles.grantCoinsSection}>
-                  <Text style={[styles.selectedUserText, { color: colors.text }]}>Grant coins to {selectedUser.name}</Text>
-                  <TextInput
-                    style={[styles.coinsInput, { backgroundColor: colors.card, color: colors.text }]}
-                    placeholder="Enter coin amount"
-                    placeholderTextColor={colors.textMuted}
-                    value={newCoins}
-                    onChangeText={setNewCoins}
-                    keyboardType="numeric"
-                  />
-                  <TouchableOpacity style={[styles.grantButton, { backgroundColor: colors.primary }]} onPress={handleGrantCoins}>
-                    <Text style={styles.grantButtonText}>Grant Coins</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+              {selectedUser && showUserActions && (
+                 <View style={styles.grantCoinsSection}>
+                   <Text style={[styles.selectedUserText, { color: colors.text }]}>Grant coins to {selectedUser.name}</Text>
+                   <TextInput
+                     style={[styles.coinsInput, { backgroundColor: colors.card, color: colors.text }]}
+                     placeholder="Enter coin amount"
+                     placeholderTextColor={colors.textMuted}
+                     value={newCoins}
+                     onChangeText={setNewCoins}
+                     keyboardType="numeric"
+                   />
+                   <View style={styles.grantButtonsContainer}>
+                     <TouchableOpacity 
+                       style={[styles.grantButton, { backgroundColor: colors.primary }]} 
+                       onPress={handleGrantCoins}
+                     >
+                       <Text style={styles.grantButtonText}>Grant Coins</Text>
+                     </TouchableOpacity>
+                     <TouchableOpacity 
+                       style={[styles.cancelButton, { backgroundColor: colors.textMuted }]} 
+                       onPress={() => {
+                         setShowUserActions(false);
+                         setSelectedUser(null);
+                         setNewCoins('');
+                       }}
+                     >
+                       <Text style={styles.cancelButtonText}>Cancel</Text>
+                     </TouchableOpacity>
+                   </View>
+                 </View>
+               )}
             </View>
           </View>
         </Modal>
@@ -428,6 +680,68 @@ export default function AdminDashboardScreen() {
                 )}
                 style={styles.transactionList}
               />
+            </View>
+          </View>
+        </Modal>
+
+        {/* Edit User Modal */}
+        <Modal visible={showEditModal} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>Edit User</Text>
+                <TouchableOpacity onPress={() => {
+                  setShowEditModal(false);
+                  setEditingUser(null);
+                  setEditUserData({ name: '', email: '' });
+                }}>
+                  <Ionicons name="close" size={24} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.editForm}>
+                <View style={styles.inputContainer}>
+                  <Text style={[styles.inputLabel, { color: colors.text }]}>Name</Text>
+                  <TextInput
+                    style={[styles.textInput, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+                    value={editUserData.name}
+                    onChangeText={(text) => setEditUserData({ ...editUserData, name: text })}
+                    placeholder="Enter user name"
+                    placeholderTextColor={colors.textMuted}
+                  />
+                </View>
+                
+                <View style={styles.inputContainer}>
+                  <Text style={[styles.inputLabel, { color: colors.text }]}>Email</Text>
+                  <TextInput
+                    style={[styles.textInput, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+                    value={editUserData.email}
+                    onChangeText={(text) => setEditUserData({ ...editUserData, email: text })}
+                    placeholder="Enter user email"
+                    placeholderTextColor={colors.textMuted}
+                    keyboardType="email-address"
+                  />
+                </View>
+                
+                <View style={styles.editButtonsContainer}>
+                  <TouchableOpacity 
+                    style={[styles.saveButton, { backgroundColor: colors.primary }]} 
+                    onPress={handleSaveEditUser}
+                  >
+                    <Text style={styles.saveButtonText}>Save Changes</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.cancelEditButton, { backgroundColor: colors.textMuted }]} 
+                    onPress={() => {
+                      setShowEditModal(false);
+                      setEditingUser(null);
+                      setEditUserData({ name: '', email: '' });
+                    }}
+                  >
+                    <Text style={styles.cancelEditButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
           </View>
         </Modal>
@@ -595,6 +909,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 8,
   },
+  userInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 12,
+  },
+  userStats: {
+    alignItems: 'flex-end',
+  },
   userName: {
     fontSize: typography.sizes.base,
     fontFamily: typography.fonts.bold,
@@ -607,6 +931,15 @@ const styles = StyleSheet.create({
   userCoins: {
     fontSize: typography.sizes.base,
     fontFamily: typography.fonts.bold,
+    marginBottom: 2,
+  },
+  userRole: {
+    fontSize: typography.sizes.xs,
+    fontFamily: typography.fonts.bold,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: 'hidden',
   },
   grantCoinsSection: {
     borderTopWidth: 1,
@@ -624,12 +957,28 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     fontSize: typography.sizes.base,
   },
+  grantButtonsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
   grantButton: {
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
+    flex: 1,
   },
   grantButtonText: {
+    color: 'white',
+    fontSize: typography.sizes.base,
+    fontFamily: typography.fonts.bold,
+  },
+  cancelButton: {
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    flex: 1,
+  },
+  cancelButtonText: {
     color: 'white',
     fontSize: typography.sizes.base,
     fontFamily: typography.fonts.bold,
@@ -675,5 +1024,89 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.base,
     fontFamily: typography.fonts.regular,
     marginTop: 16,
+  },
+  userCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+  },
+  userDetails: {
+    flex: 1,
+  },
+  userMetaInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    gap: 8,
+  },
+  bannedStatus: {
+    fontSize: typography.sizes.xs,
+    fontFamily: typography.fonts.bold,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  userActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  editButton: {},
+  coinsButton: {},
+  banButton: {},
+  deleteButton: {},
+  editForm: {
+    gap: 16,
+  },
+  inputContainer: {
+    gap: 8,
+  },
+  inputLabel: {
+    fontSize: typography.sizes.sm,
+    fontFamily: typography.fonts.medium,
+  },
+  textInput: {
+    borderRadius: 8,
+    padding: 12,
+    fontSize: typography.sizes.base,
+    borderWidth: 1,
+  },
+  editButtonsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  saveButton: {
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    flex: 1,
+  },
+  saveButtonText: {
+    color: 'white',
+    fontSize: typography.sizes.base,
+    fontFamily: typography.fonts.bold,
+  },
+  cancelEditButton: {
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    flex: 1,
+  },
+  cancelEditButtonText: {
+    color: 'white',
+    fontSize: typography.sizes.base,
+    fontFamily: typography.fonts.bold,
   },
 });
